@@ -1,41 +1,45 @@
-"""March 23rd, 2025: Starting with Utils file
-    created funcitons: -
-    1. db_connection
-    2. create_table
-    3. insert_data
-    4. insert_csv_data
-    
-    - Formulated Doc Strings: -
-        1. Must have: -
-            a. Summary
-            b. Args
-            c. Returns
-            d. Raises
-    
-    - try except block for error handling
-    
-    TO TEST: Import functions in another file.
-    
-    # TO DO
-        [Done] 1. Rewirte all the functions
-        [Done] 2. CSV to DB
-        [Done] 3. Funcitons needed :-
-            [Done, combined with Connect funtion] a. create database [check if db exists or not]
-            [Done] b. connect_to_mysqlserver
-            [Done] c. creating table [check if db exists or not]
-            [Done] d. create the schema for the table, and return table schema, and values placeholder, insert data
-        4. Tests the file, import the functions to test it out
-
-"""
+"""March 23rd, 2025 - March 28th, 2025"""
 
 from typing import Optional, Tuple
 
 import mysql.connector
-from mysql.connector import Error, MySQLConnection
-
 import pandas as pd
+from mysql.connector import Error, MySQLConnection
+from mysql.connector.cursor import MySQLCursor as Cursor
 
-def db_connection(host: str, user: str, password: str, database: Optional[str] = None) -> Tuple[Optional[MySQLConnection], Optional[Error]]:
+
+def create_database(mycursor: Cursor,
+             database: str
+            ) -> Optional[Error]:
+    """_summary_
+
+    Args:
+        mycursor (Cursor): mysql cursor to make changed into database
+        database (str): the database that is being modified
+    
+    Returns:
+        - None
+    
+    Raises: 
+        -  Error if Database creation fails, otherwise none
+    """
+    #drop db if already exists and create a new one.
+    mycursor.execute(f"DROP DATABASE IF EXISTS {database}")
+    mycursor.execute(f"CREATE DATABASE {database}")
+    mycursor.execute("SHOW DATABASES")
+    dbs = mycursor.fetchall()
+    dbs = [db[0] for db in dbs]
+    if database in dbs:
+        print(f"Database: '{database}' created successfully")
+    else:
+        print(f"Failed to create Database: '{database}'")
+        
+        
+def db_connection(host: str,
+                  user: str,
+                  password: str,
+                  database: Optional[str] = None
+                 ) -> Tuple[MySQLConnection, Cursor]:
     """
     Connects to mysql server.
 
@@ -46,137 +50,143 @@ def db_connection(host: str, user: str, password: str, database: Optional[str] =
         database (optional[str], Default=None): Database name (Default: None)
 
     Returns:
-        tuple (MySQLConnection): 
-        - Connection object if successful, otherwise None
-        - Error Object if fails, otherwise None
+        tuple (MySQLConnection [Optional], cursor [Optional]): 
+        - Connection object and Cursor obhect if successful, otherwise None
 
     Raises:
         Connection Error: Connection Unsuccessful
     """
     try:
-        #connect to server (without specifying the database)
+        #connecting to mysql server
         con = mysql.connector.connect(
             host=host,
             user=user,
             password=password,
+            database=database
         )
-
-        #create database if name is provided, and not exists already
-        if database:
-            mycursor = con.cursor()
-            sql_query = f"CREATE DATABASE IF NOT EXISTS {database}"
-            mycursor.execute(sql_query)
-            con.commit()
-            mycursor.close()
-            con.close()
-
-            #reconnect with selected database
-            con = mysql.connector.connect(
-                host=host,
-                user=user,
-                password=password,
-                database=database
-            )
+        mycursor = con.cursor()
         print(f"Connected to MySQL {'and Database: ' + database if database else ''} +  Successfully")
-        return con, None
+        return con, mycursor
 
     except Error as e:
         print(f"Cannot connect to MySQL Server: {e}")
-        return None, e
+        
 
-
-def create_table(con: MySQLConnection, table_name: str, schema: str, replace: bool = False) -> Optional[Error]:
+def create_table(mycursor: Cursor, table_name: str, schema: str) -> None:
     """Creates Table
 
     Args:
-        con (MySQLConnection): Connection to MySQL database 
+        mycursor (Cursor): MySQL cursor. 
         table_name (str): table name
         schema (Tuple): defines the columns of the table and its data types
 
     Returns:
-        - Error Object if fails, otherise None
+        - None
 
     Raises:
         - Error if Table creation fails, otherwise None 
 
     """
     try:
-        mycursor = con.cursor()
-        if replace:
-            sql = f"DROP TABLE IF EXISTS {table_name}"
-            mycursor.execute(sql)
-            print(f"Old Table '{table_name}' dropped before creation.")
+        sql = f"DROP TABLE IF EXISTS {table_name}"
+        mycursor.execute(sql)
+        print(f"Old Table '{table_name}' dropped before creation.")
 
         sql = f"CREATE TABLE {table_name} ({schema})"
         mycursor.execute(sql)
-        con.commit()
-        mycursor.close()
         print(f"Table '{table_name}' created successfully.")
-        return None
     except Error as e:
-        print(f"Connot create Table: {e}")
-        return e
+        print(f"Error creating table: {e}")
 
+def get_data(csv_file: str) -> Optional[pd.DataFrame]:
+    """
+    Reads data from a CSV file using pandas and inserts it into the specified MySQL table.
 
-def insert_data(con: MySQLConnection, table_name: str, columns: list, values: list) -> Optional[Error]:
+    Args:
+        csv_file (str): Path to the CSV file.
+
+    Returns:
+        pd.DataFrame: Dataframe containing the CSV data. [Optional]
+
+    Raises:
+        FileNotFoundError: If the file is not found.
+    """
+    try:
+        #read data from csv, extarct columns and values separately
+        df = pd.read_csv(csv_file)
+        # Insert data into MySQL table using insert_data function
+        # Drop 'Unnamed:0' column if it exists, ignoring errors if not present
+        df.drop(['Unnamed:0'],axis=1,inplace=True,errors='ignore')
+        return df
+    except FileNotFoundError:
+        print(f"File not found: {csv_file}")
+
+def formatting_columns_placeholders(df: pd.DataFrame) -> Tuple[str, str]:
+    """
+    Generates SQL schema and placeholders based on DataFrame columns.
+
+    Args:
+        df (pd.DataFrame): Pandas DataFrame containing the dataset.
+
+    Returns:
+        Tuple[str, str]: SQL schema and value placeholders.
+    """
+    sql_cols = []
+    placeholders = []
+
+    #changing python types to sql types
+    for col in df.columns:
+        if df[col].dtype == 'int64':
+            data_type = 'INT'
+        elif df[col].dtype == 'float64':
+            data_type = 'FLOAT'
+        elif df[col].dtype == 'bool':
+            data_type = 'BOOLEAN'
+        else:
+            data_type = 'VARCHAR(255)'
+        sql_cols.append(f"{col} {data_type}")
+        placeholders.append("%s")
+
+    #converting the list as strings
+    schema = ", ".join(sql_cols)
+    placeholder_str = f"({', '.join(placeholders)})"
+
+    return schema, placeholder_str
+            
+
+def insert_data(con: MySQLConnection, 
+                mycursor: Cursor,
+                table_name: str,
+                df: pd.DataFrame
+                ) -> Optional[int]:
     """
     Inserts data into the specified table for specific columns.
 
     Args:
         con (MySQLConnection): Connection to the MySQL database.
-        table_name (str): Name of the table to insert data into.
-        columns (list): List of columns to insert data into.
-        data (list): List of tuples, where each tuple represents a row of data to be inserted.
+        mycursor (Cursor): MySQL cursor.
+        table_name (str): Name of the table.
+        df (pd.DataFrame): Pandas DataFrame containing the data.
 
     Returns:
-        Error Object if insertion fails, otherwise None.
-
+        int: Number of rows successfully inserted
+       
     Raises:
-        Error if Data Insertion fails, otherwise None.
+        Error: If insertion fails, otherwise None
     """
-
-    try:
-        mycursor = con.cursor()
-        placeholders = ", ".join(["%s"] * len(values)) #placeholder string for intertion
-        columns_names = ", ".join(columns) #columns as string for insertion
-        values = ", ".join(values) #values as string for insertion
-        sql = f"INSERT INTO {table_name} ({columns_names}) VALUES ({placeholders})"
-        mycursor.executemany(sql, values)
-        con.commit()
-        mycursor.close()
-        print(f"Data has been successfully inserted in {table_name}")
-        return None
-    except Error as e:
-        print(f"Cannot insert data into table '{table_name}': {e}")
-        return e
-
-def insert_csv_data(con: MySQLConnection, table_name: str, csv_file: str) -> Optional[Error]:
-    """
-    Reads data from a CSV file using pandas and inserts it into the specified MySQL table.
-
-    Args:
-        con (MySQLConnection): Connection to the MySQL database.
-        table_name (str): Name of the table to insert data into.
-        csv_file (str): Path to the CSV file.
-
-    Returns:
-        Error Object if insertion fails, otherwise None.
-
-    Raises:
-        Error if CSV reading or Data Insertion fails, otherwise None.
-    """
-    try:
-        #read data from csv, extarct columns and values separately
-        df = pd.read_csv(csv_file)
-        columns = df.columns.tolist() #getting columns
-        values = df.values.tolist() #getting values as list of lists
+    total=0
+    schema, placeholders = formatting_columns_placeholders(df)
+    cols = ", ".join(df.columns) #deriving column names in the specified df
+    sql_query = f"INSERT INTO {table_name} ({cols}) Values {placeholders}"
+    
+    for _, row in df.iterrows():
+        values = tuple(row) #one row data at a time 
+        try:
+            mycursor.execute(sql_query, values)
+            if mycursor.rowcount == 1: #if the number of row inserted is 1 
+                total+=1
+            con.commit()
+        except Error as e:
+            print(e)
+    return total
         
-        # Insert data into MySQL table using insert_data function
-        return insert_data(con, table_name, columns, values)
-    except FileNotFoundError as e:
-        print(f"File not found: {csv_file}")
-        return e
-    except Error as e:
-        print(f"Error reading CSV or inserting data: {e}")
-        return e
-
