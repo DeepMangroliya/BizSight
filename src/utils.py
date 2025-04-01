@@ -33,13 +33,13 @@ def create_database(mycursor: Cursor,
         print(f"Database: '{database}' created successfully")
     else:
         print(f"Failed to create Database: '{database}'")
-        
+      
         
 def db_connection(host: str,
                   user: str,
                   password: str,
                   database: Optional[str] = None
-                 ) -> Tuple[MySQLConnection, Cursor]:
+                 ) -> Tuple[MySQLConnection, str]:
     """
     Connects to mysql server.
 
@@ -65,14 +65,14 @@ def db_connection(host: str,
             database=database
         )
         mycursor = con.cursor()
-        print(f"Connected to MySQL {'and Database: ' + database if database else ''} +  Successfully")
-        return con, mycursor
+        print(f"Connected to MySQL Successfully")
 
     except Error as e:
         print(f"Cannot connect to MySQL Server: {e}")
+    return con, mycursor
         
 
-def create_table(mycursor: Cursor, table_name: str, schema: str) -> None:
+def create_table(mycursor: Cursor, database: str, table_name: str, schema: str) -> None:
     """Creates Table
 
     Args:
@@ -88,11 +88,11 @@ def create_table(mycursor: Cursor, table_name: str, schema: str) -> None:
 
     """
     try:
-        sql = f"DROP TABLE IF EXISTS {table_name}"
+        sql = f"DROP TABLE IF EXISTS {database.table_name}"
         mycursor.execute(sql)
         print(f"Old Table '{table_name}' dropped before creation.")
 
-        sql = f"CREATE TABLE {table_name} ({schema})"
+        sql = f"CREATE TABLE {database.table_name} ({schema})"
         mycursor.execute(sql)
         print(f"Table '{table_name}' created successfully.")
     except Error as e:
@@ -117,10 +117,10 @@ def get_data(csv_file: str) -> Optional[pd.DataFrame]:
         # Insert data into MySQL table using insert_data function
         # Drop 'Unnamed:0' column if it exists, ignoring errors if not present
         df.drop(['Unnamed:0'],axis=1,inplace=True,errors='ignore')
-        return df
     except FileNotFoundError:
         print(f"File not found: {csv_file}")
-
+    return df
+    
 def formatting_columns_placeholders(df: pd.DataFrame) -> Tuple[str, str]:
     """
     Generates SQL schema and placeholders based on DataFrame columns.
