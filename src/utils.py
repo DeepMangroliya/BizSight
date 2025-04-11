@@ -1,5 +1,3 @@
-"""March 23rd, 2025 - March 28th, 2025"""
-
 import io
 import os
 from typing import Optional, Tuple
@@ -201,7 +199,9 @@ def insert_data(con: MySQLConnection,
         
 #Amazon Web Services (AWS)
 
-def auth_aws(aws_access_key: str, aws_secret_key: str, region: Optional[str]) -> BaseClient:
+def auth_aws(aws_access_key: str, 
+             aws_secret_key: str, 
+             region: Optional[str]='us-east-2') -> BaseClient:
     """
     Authenticates and returns an S3 client using the provided AWS credentials and region.
 
@@ -217,10 +217,7 @@ def auth_aws(aws_access_key: str, aws_secret_key: str, region: Optional[str]) ->
         BotoCoreError, ClientError: If authentication or connection fails.
     """
     try:
-        if region is None:
-            s3_client = boto3.client('s3', aws_access_key_id=aws_access_key, aws_secret_access_key=aws_secret_key)
-        else:
-            s3_client = boto3.client('s3', aws_access_key_id=aws_access_key, aws_secret_access_key=aws_secret_key, region=region)
+        s3_client = boto3.client('s3', aws_access_key_id=aws_access_key, aws_secret_access_key=aws_secret_key, region_name=region)
         return s3_client
     except (BotoCoreError, ClientError, TypeError) as e:
         print(e)
@@ -277,7 +274,8 @@ def write_file_s3(s3_client: BaseClient,
         object_name = os.path.basename(file)
         
     try:
-        s3_client.upload_file(file, bucket, object_name)
+        with open(file, "rb") as file_content:
+            s3_client.put_object(Bucket=bucket, Key=object_name, Body=file_content)
         print("File uploaded Successfully")
     except ClientError as e:
         print(e)
