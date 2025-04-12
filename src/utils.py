@@ -252,9 +252,9 @@ def read_file_s3(s3_client: BaseClient,
     return df
 
 def write_file_s3(s3_client: BaseClient, 
-                  file: str, 
+                  file: pd.DataFrame, 
                   bucket: str, 
-                  object_name: Optional[str]=None) -> None:
+                  object_name: str) -> None:
     """
     Uploads a file to an S3 bucket.
 
@@ -269,13 +269,17 @@ def write_file_s3(s3_client: BaseClient,
 
     Raises:
         ClientError: If there is an issue with the S3 request (e.g., invalid bucket or permission error).
-    """
+    """ 
+    
     if object_name is None:
-        object_name = os.path.basename(file)
-        
+        raise ValueError("You must provide an object_name when uploading a DataFrame.")
+    
     try:
-        with open(file, "rb") as file_content:
-            s3_client.put_object(Bucket=bucket, Key=object_name, Body=file_content)
+        csv_buffer = io.BytesIO()
+        file.to_csv(csv_buffer, index = False)
+        csv_buffer.seek(0)
+        
+        s3_client.put_object(Bucket=bucket, Key=object_name, Body=csv_buffer.getvalue())
         print("File uploaded Successfully")
     except ClientError as e:
         print(e)
