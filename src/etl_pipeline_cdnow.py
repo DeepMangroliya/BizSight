@@ -2,10 +2,7 @@
 
 import pandas as pd
 # import boto3
-from faker import Faker
 from src.utils import get_data
-# Initialize Faker
-fake = Faker()
 
 # Step 1: Load CDNOW dataset
 # cdnow = pd.read_csv("data/original_data.csv", sep=',', names=['customer_id', 'date', 'quantity', 'product_id', 'price', 'product_category', 'country'], header=0)
