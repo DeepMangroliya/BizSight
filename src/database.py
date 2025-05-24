@@ -4,7 +4,7 @@ import os
 from dotenv import load_dotenv
 
 from utils import (create_database, create_table, db_connection,
-                   formatting_columns_placeholders, get_data, insert_data, run_sql_query_from_file)
+                   formatting_columns_placeholders, get_data, insert_data)
 
 #utilizing argparse module to push the arguments dynamically
 parser = argparse.ArgumentParser(description="Accessing Database test1 for D2P Project") #creating parser
@@ -19,10 +19,11 @@ args = parser.parse_args()
 load_dotenv(".env")
 
 # connect to mysql server
-con, mycursor = db_connection(host=os.getenv("HOST"), 
-                              user="root", 
+con, mycursor = db_connection(host=os.getenv("HOST"),
+                              user="root",
                               password=os.getenv("PASSWORD"))
 
+#check if we are creating a new database or not to create table and insert data accoirdingly.
 if args.database_new:
     create_database(mycursor=mycursor, database=args.database_name)
 else:
@@ -30,6 +31,3 @@ else:
     schema, placeholder_str = formatting_columns_placeholders(df=df)
     create_table(mycursor=mycursor, database=args.database_name, table_name=args.table_name, schema=schema)
     insert_data(con=con, mycursor=mycursor, table_name=args.table_name, df=df)
-
-df = run_sql_query_from_file(con=con, mycursor=mycursor, file_path=args.file_path)
-print(df)

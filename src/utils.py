@@ -1,20 +1,19 @@
 import io
 import os
+from pathlib import Path
 from typing import Optional, Tuple
 
 import boto3
+import gspread
 import mysql.connector
 import pandas as pd
 from botocore.client import BaseClient
 from botocore.exceptions import BotoCoreError, ClientError
+from dotenv import load_dotenv
+from google.oauth2.service_account import Credentials
+from gspread_dataframe import set_with_dataframe
 from mysql.connector import Error, MySQLConnection
 from mysql.connector.cursor import MySQLCursor as Cursor
-
-import os
-from dotenv import load_dotenv
-from pathlib import Path
-import gspread
-from google.oauth2.service_account import Credentials
 
 load_dotenv(Path('.env'))
 
@@ -42,8 +41,6 @@ def db_connection(host: str,
     """
     try:
         #connecting to mysql server
-        con = None
-        mycursor = None
         con = mysql.connector.connect(
             host=host,
             user=user,
@@ -51,7 +48,7 @@ def db_connection(host: str,
             database=database
         )
         mycursor = con.cursor()
-        print(f"Connected to MySQL Successfully")
+        print("Connected to MySQL Successfully")
 
     except Error as e:
         print(f"Cannot connect to MySQL Server: {e}")
@@ -101,11 +98,13 @@ def create_table(mycursor: Cursor, database: str, table_name: str, schema: str) 
 
     """
     try:
+        #drop table if exists
         mycursor.execute(f"USE {database}")
         sql = f"DROP TABLE IF EXISTS {table_name}"
         mycursor.execute(sql)
         print(f"Old Table '{table_name}' dropped before creation.")
-
+        
+        #create a new one
         sql = f"CREATE TABLE {table_name} ({schema})"
         mycursor.execute(sql)
         print(f"Table '{table_name}' created successfully.")
@@ -208,16 +207,9 @@ def insert_data(con: MySQLConnection,
         
 #Amazon Web Services (AWS)
 
-def auth_aws(aws_access_key: str, 
-             aws_secret_key: str, 
-             region: Optional[str]='us-east-2') -> BaseClient:
+def auth_aws() -> BaseClient:
     """
     Authenticates and returns an S3 client using the provided AWS credentials and region.
-
-    Parameters:
-        aws_access_key (str): AWS access key.
-        aws_secret_key (str): AWS secret key.
-        region (Optional[str]): AWS region (optional).
 
     Returns:
         BaseClient: An authenticated Boto3 S3 client.
@@ -226,20 +218,20 @@ def auth_aws(aws_access_key: str,
         BotoCoreError, ClientError: If authentication or connection fails.
     """
     try:
-        s3_client = boto3.client('s3', aws_access_key_id=aws_access_key, aws_secret_access_key=aws_secret_key, region_name=region)
+        s3_client = boto3.client('s3', aws_access_key_id=os.getenv('ACCESS_KEY'),
+                                 aws_secret_access_key=os.getenv('SECRET_KEY'),
+                                 region_name='us-east-2')
         return s3_client
     except (BotoCoreError, ClientError, TypeError) as e:
         print(e)
     
 
-def read_file_s3(s3_client: BaseClient, 
-                 bucket: str, 
+def read_file_s3(bucket: str, 
                  object_name: str) -> pd.DataFrame:
     """
     Reads a file from S3 and loads it into a pandas DataFrame.
 
     Parameters:
-        s3_client (BaseClient): The S3 client.
         bucket (str): The S3 bucket name.
         file_name (str): The name of the file in the bucket.
 
@@ -252,49 +244,59 @@ def read_file_s3(s3_client: BaseClient,
     """
     
     try:
+        s3_client = auth_aws()
         s3_object = s3_client.get_object(Bucket=bucket, Key=object_name)
-        body = s3_object['Body'].read()
-        data = io.BytesIO(body)
-        df = pd.read_csv(data)
+        df = pd.read_csv(s3_object['Body'])
+        print(df)
     except ClientError as e:
         print(e)
     return df
 
-def write_file_s3(s3_client: BaseClient, 
-                  file: pd.DataFrame, 
+def write_file_s3(df: pd.DataFrame, 
                   bucket: str, 
                   object_name: str) -> None:
     """
-    Uploads a file to an S3 bucket.
+    Uploads a pandas DataFrame as a CSV file to a specified S3 bucket.
 
-    Parameters:
-        s3_client (BaseClient): The S3 client used to interact with AWS S3.
-        file (str): The local file path to be uploaded.
-        bucket (str): The S3 bucket name where the file will be uploaded.
-        object_name (str): The name of the object in S3 (the file name).
+    Args:
+        df (pd.DataFrame): The DataFrame to upload.
+        bucket (str): The name of the S3 bucket.
+        object_name (str): The key (file name) for the object in the S3 bucket.
 
     Returns:
-        None: This function does not return anything. It only uploads the file to S3.
+        None
 
     Raises:
-        ClientError: If there is an issue with the S3 request (e.g., invalid bucket or permission error).
-    """ 
-    
+        ValueError: If `object_name` is not provided.
+        ClientError: If there is an issue with the S3 request (e.g., invalid bucket, permissions issue).
+    """
+
     if object_name is None:
         raise ValueError("You must provide an object_name when uploading a DataFrame.")
     
     try:
-        csv_buffer = io.BytesIO()
-        file.to_csv(csv_buffer, index = False)
-        csv_buffer.seek(0)
-        
-        s3_client.put_object(Bucket=bucket, Key=object_name, Body=csv_buffer.getvalue())
+        s3_client = auth_aws()
+        csv = df.to_csv(index = False)
+        s3_client.put_object(Bucket=bucket, Key=object_name, Body=csv)
         print("File uploaded Successfully")
     except ClientError as e:
         print(e)
         
-    
 def gcp_authentication() -> Credentials:
+    """
+    Authenticates with Google Cloud Platform using a service account and environment variables.
+
+    Environment Variables Required:
+        - PRIVATE_KEY_ID
+        - PRIVATE_KEY
+        - CLIENT_EMAIL
+        - CLIENT_ID
+        - CLIENT_X509_CERT_URL
+
+    Returns:
+        Credentials: A Google OAuth2 credentials object used for accessing Google Sheets and Drive APIs.
+    """
+    
     SCOPES = [
         "https://spreadsheets.google.com/feeds",
         'https://www.googleapis.com/auth/spreadsheets',
@@ -305,7 +307,7 @@ def gcp_authentication() -> Credentials:
     type = "service_account"
     project_id = "potent-symbol-456616-g9"
     private_key_id = os.getenv("PRIVATE_KEY_ID")
-    private_key = os.getenv("PRIVATE_KEY")
+    private_key = os.getenv("PRIVATE_KEY").replace('\\n', '\n')
     client_email = os.getenv("CLIENT_EMAIL")
     client_id = os.getenv("CLIENT_ID")
     auth_uri = "https://accounts.google.com/o/oauth2/auth"
@@ -323,53 +325,55 @@ def gcp_authentication() -> Credentials:
         "client_x509_cert_url": client_x509_cert_url,
         "token_uri": token_uri,
         "auth_uri": auth_uri,
-        "auth_provider_x509_cert_url": auth_provider_x509_cert_url
-    })
+        "auth_provider_x509_cert_url": auth_provider_x509_cert_url,
+        },
+       scopes=SCOPES
+    )
     
     return credentials
     
-def gcp_feed_data(spreadsheet_name: str, worksheet_name: str, df:pd.DataFrame) -> None:
-    credentials = gcp_authentication()
-    gc = gspread.authorize(credentials)
+def gcp_feed_data(spreadsheet_id: str, 
+                  worksheet_name: str, 
+                  df: pd.DataFrame) -> None:
     
-    sheet = gc.open(spreadsheet_name)
-    
-    try:
-        worksheet = sheet.worksheet(worksheet_name)
-        worksheet.clear()
-    except gspread.exceptions.WorksheetNotFound:
-        worksheet = sheet.add_worksheet(title=worksheet_name, rows=str(len(df) + 1), cols=str(len(df.columns)))
-    
-    data = [df.columns.values.tolist()] + df.values.tolist()
-    
-    worksheet.update(data)
-    
-    print(f"Data written to '{worksheet_name}' in '{spreadsheet_name}' successfully.")
-    
-def run_sql_query_from_file(con: MySQLConnection, mycursor: Cursor, file_path: str) -> Optional[pd.DataFrame]:
     """
-    Executes SQL query from a .sql file and returns the result as a DataFrame.
+    Uploads a pandas DataFrame to a specified Google Sheets worksheet.
+
+    If the worksheet does not exist, it creates a new one.
+    Existing data in the worksheet is cleared before uploading the new DataFrame.
 
     Args:
-        con (MySQLConnection): Connection object to the MySQL server.
-        mycursor (Cursor): Cursor object for executing queries.
-        file_path (str): Path to the .sql file.
+        spreadsheet_id (str): The ID of the target Google Spreadsheet.
+        worksheet_name (str): The name of the worksheet to write data into.
+        df (pd.DataFrame): The DataFrame containing data to upload.
 
     Returns:
-        pd.DataFrame: Query result as DataFrame if successful, otherwise None.
+        None
+
+    Raises:
+        gspread.exceptions.WorksheetNotFound: If the worksheet doesn't exist (handled by creating a new one).
+        gspread.exceptions.SpreadsheetNotFound: If the spreadsheet ID is invalid or inaccessible.
     """
+    
+    creds = gcp_authentication()
+    client = gspread.authorize(creds)
+    
+    # Open the spreadsheet
     try:
-        with open(file_path, 'r') as f:
-            query = f.read()
-        
-        mycursor.execute(query)
-        rows = mycursor.fetchall()
-        columns = [desc[0] for desc in mycursor.description]
-        df = pd.DataFrame(rows, columns=columns)
-        print(f"Query executed successfully. {len(df)} rows retrieved.")
-        return df
-    except Error as e:
-        print(f"Error executing query from file: {e}")
-    except FileNotFoundError:
-        print(f"Query file not found: {file_path}")
-    return None
+        sheet = client.open_by_key(spreadsheet_id).worksheet(worksheet_name)
+    except gspread.exceptions.WorksheetNotFound:
+        sheet = client.open_by_key(spreadsheet_id).add_worksheet(worksheet_name,1,1)
+    except gspread.SpreadsheetNotFound:
+        print(f"Spreadsheet '{spreadsheet_id}' not found.")
+    
+    # Clear existing data
+    sheet.clear()
+    
+    df=df.astype(str)
+    
+    cell_list = sheet.update([df.columns.values.tolist()] + df.values.tolist())
+    
+    if cell_list:
+        return True
+    else:
+        return False
