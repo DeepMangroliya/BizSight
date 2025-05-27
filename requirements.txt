@@ -19,7 +19,7 @@ mysql-connector-python
 python-dotenv
 
 # Argument parsing (standard, but for completeness)
-argparse ; python_version < "3.10"
+# argparse ; python_version < "3.10"
 
 # Optional typing support
-typing-extensions ; python_version < "3.8"
+# typing-extensions ; python_version < "3.8"
