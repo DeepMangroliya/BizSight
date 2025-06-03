@@ -5,7 +5,7 @@ import pandas as pd
 from dotenv import load_dotenv
 from pathlib import Path
 
-from utils import db_connection, write_file_s3
+from utils import db_connection
 
 load_dotenv(".env")
 
