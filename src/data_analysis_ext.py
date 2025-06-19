@@ -5,7 +5,7 @@ import pandas as pd
 from dotenv import load_dotenv
 from pathlib import Path
 
-from utils import db_connection
+from src.utils import db_connection
 
 load_dotenv(".env")
 
