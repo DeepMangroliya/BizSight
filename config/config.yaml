@@ -4,28 +4,24 @@ upload-to-database:
     - import:
         dirpath: ./data/
         file_extension: csv 
-        prefix_filename: supermarket_sales
+        prefix_filename: original_data
 
 cleaned-upload-to-database:
   import:
     - import:
         dirpath: ./data/
         file_extension: csv 
-        prefix_filename: table1
+        prefix_filename: sales
     - import:
         dirpath: ./data/
         file_extension: csv 
-        prefix_filename: table2
-    - import:
-        dirpath: ./data/
-        file_extension: csv 
-        prefix_filename: table3
+        prefix_filename: products
 
 data_analysis_ext:
   export:
     - export:
         host: s3
-        bucket_name: ds-project-demo1
+        bucket_name: d2p.testing.bucket
         object_name: clv_data
 
 modeling:
