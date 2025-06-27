@@ -9,7 +9,7 @@ echo "Creating table & uploading data......."
 python src/database.py -db "raw" -t "upload-to-database"
 
 echo "Running ETL......."
-python3 python src/etl_pipeline.py
+python src/etl_pipeline.py
 
 echo "Creating processed database......."
 python src/database.py -dbn True -db "refined"

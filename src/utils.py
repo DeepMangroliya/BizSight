@@ -23,7 +23,7 @@ def db_connection(host: str,
                   user: str,
                   password: str,
                   database: Optional[str] = None
-                 ) -> Tuple[MySQLConnection, str]:
+                 ) -> Optional[Tuple[MySQLConnection, str]]:
     """
     Connects to mysql server.re
 
@@ -50,11 +50,10 @@ def db_connection(host: str,
         )
         mycursor = con.cursor()
         print("Connected to MySQL Successfully")
-
+        return con, mycursor
     except Error as e:
         print(f"Cannot connect to MySQL Server: {e}")
-    return con, mycursor
-
+        return None, None
 
 def create_database(mycursor: Cursor,
              database: str
@@ -115,27 +114,24 @@ def create_table(mycursor: Cursor, database: str, table_name: str, schema: str) 
 
 def get_data(csv_file: str) -> Optional[pd.DataFrame]:
     """
-    Reads data from a CSV file using pandas and inserts it into the specified MySQL table.
+    Reads data from a CSV file using pandas and prepares it for MySQL upload.
 
     Args:
-        csv_file (str): Path to the CSV file.
+        csv_file (str): Absolute path to the CSV file.
 
     Returns:
-        pd.DataFrame: Dataframe containing the CSV data. [Optional]
-
-    Raises:
-        FileNotFoundError: If the file is not found.
+        Optional[pd.DataFrame]: DataFrame containing the CSV data, or None if not found.
     """
     try:
-        #read data from csv, extarct columns and values separately
         df = pd.read_csv(csv_file).fillna(0)
-        # Insert data into MySQL table using insert_data function
-        # Drop 'Unnamed:0' column if it exists, ignoring errors if not present
         df.drop(['Unnamed: 0'], axis=1, inplace=True, errors='ignore')
+        return df
     except FileNotFoundError:
-        print(f"File not found: {csv_file}")
-    return df
-
+        print(f"❌ File not found: {csv_file}")
+        return None
+    except Exception as e:
+        print(f"❌ Error reading {csv_file}: {e}")
+        return None
 
 def formatting_columns_placeholders(df: pd.DataFrame) -> Tuple[str, str]:
     """
@@ -278,7 +274,7 @@ def write_file_s3(df: pd.DataFrame,
     try:
         s3_client = auth_aws()
         csv = df.to_csv(index = False)
-        s3_client.put_object(Bucket=bucket, Key=object_name, Body=f"{csv}.csv")
+        s3_client.put_object(Bucket=bucket, Key=object_name, Body=csv)
         print("File uploaded Successfully")
     except ClientError as e:
         print(e)

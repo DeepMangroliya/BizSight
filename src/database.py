@@ -8,41 +8,54 @@ from dotenv import load_dotenv
 from utils import (create_database, create_table, db_connection,
                    formatting_columns_placeholders, get_data, insert_data)
 
-# utilizing argparse module to push the arguments dynamically
-parser = argparse.ArgumentParser(
-    description="Accessing Database test1 for D2P Project")  # creating parser
+# ──────────────────────────────────────────────
+# Parse CLI arguments
+parser = argparse.ArgumentParser(description="Accessing Database for D2P Project")
 parser.add_argument('-dbn', '--database_new', default=False, type=bool,
-                    help='Use existing database or create a new database')  # optional
+                    help='Use existing database or create a new database')
 parser.add_argument('-db', '--database_name', required=True,
-                    type=str, help='Name of the database')  # required
-# parser.add_argument('-c', '--csv_file', type=str, help='Path to csv file') #optional
+                    type=str, help='Name of the database')
 parser.add_argument('-t', '--task_name', type=str,
-                    help='task defined in the config file')  # optional
+                    help='task defined in the config file')
 args = parser.parse_args()
 
-# load credentials
-load_dotenv(".env")
+# ──────────────────────────────────────────────
+# Setup project root path
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-# load config file
-with open("./config/config.yaml", 'r') as f:
+# Load environment variables safely regardless of working directory
+load_dotenv(dotenv_path=PROJECT_ROOT / ".env")
+
+# Load config YAML safely using full path
+with open(PROJECT_ROOT / "config" / "config.yaml", 'r') as f:
     config = yaml.load(f, Loader=yaml.FullLoader)
 
-# connect to mysql server
-con, mycursor = db_connection(host=os.getenv("HOST"),
-                              user="root",
-                              password=os.getenv("PASSWORD"))
+# Connect to MySQL using credentials from .env
+con, mycursor = db_connection(
+    host=os.getenv("HOST"),
+    user="root",
+    password=os.getenv("PASSWORD")
+)
 
-# check if we are creating a new database or not to create table and insert data accoirdingly.
+# ──────────────────────────────────────────────
+# Run logic based on arguments
 if args.database_new:
     create_database(mycursor=mycursor, database=args.database_name)
 else:
     config_import = config[args.task_name]['import']
-    for i in range(len(config_import)):
-        data = Path(config_import[i]["import"]["dirpath"],
-                    config_import[i]["import"]["prefix_filename"] + '.' +
-                    config_import[i]["import"]["file_extension"])
-        table_name = os.path.basename(data).split('.')[0]
-        df = get_data(csv_file=data)
+    for item in config_import:
+        # Fix 1: Construct absolute path to CSV file
+        data_path = PROJECT_ROOT / item["import"]["dirpath"] / (
+            item["import"]["prefix_filename"] + '.' + item["import"]["file_extension"]
+        )
+
+        table_name = data_path.stem  # cleaner than os.path.basename
+        df = get_data(csv_file=data_path)
+
+        # Fix 2: Add check in case file was missing
+        if df is None:
+            raise FileNotFoundError(f"ETL stopped: Could not find {data_path}")
+
         schema, placeholder_str = formatting_columns_placeholders(df=df)
         create_table(mycursor=mycursor, database=args.database_name,
                      table_name=table_name, schema=schema)
