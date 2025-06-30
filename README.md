@@ -30,6 +30,14 @@ Raw Data (CSV) → MySQL Database → ETL Processing → ML Modeling → Cloud S
 - **Cloud Integration**: AWS S3 for data lakes, Google Sheets for reporting
 - **Configuration Management**: YAML-based pipeline orchestration
 
+## 🗺️ Project Flow Diagram
+
+<p align="center">
+  <img src="assets/BizSight - Sales Project.png" alt="BizSight Pipeline" width="800"/>
+</p>
+<p align="center"><em>BizSight: Full-stack architecture from raw data to dashboards</em></p>
+
+
 ## 🚀 Technical Stack
 
 | Component | Technology | Purpose |
