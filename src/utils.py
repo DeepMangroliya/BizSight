@@ -279,55 +279,89 @@ def write_file_s3(df: pd.DataFrame,
     except ClientError as e:
         print(e)
         
+# def gcp_authentication() -> Credentials:
+#     """
+#     Authenticates with Google Cloud Platform using a service account and environment variables.
+
+#     Environment Variables Required:
+#         - PRIVATE_KEY_ID
+#         - PRIVATE_KEY
+#         - CLIENT_EMAIL
+#         - CLIENT_ID
+#         - CLIENT_X509_CERT_URL
+
+#     Returns:
+#         Credentials: A Google OAuth2 credentials object used for accessing Google Sheets and Drive APIs.
+#     """
+    
+#     SCOPES = [
+#         "https://spreadsheets.google.com/feeds",
+#         'https://www.googleapis.com/auth/spreadsheets',
+#         "https://www.googleapis.com/auth/drive.file",
+#         "https://www.googleapis.com/auth/drive"
+#     ]
+     
+#     type = "service_account"
+#     project_id = "potent-symbol-456616-g9"
+#     private_key_id = os.getenv("PRIVATE_KEY_ID")
+#     private_key = os.getenv("PRIVATE_KEY").replace('\\n', '\n')
+#     client_email = os.getenv("CLIENT_EMAIL")
+#     client_id = os.getenv("CLIENT_ID")
+#     auth_uri = "https://accounts.google.com/o/oauth2/auth"
+#     token_uri = "https://oauth2.googleapis.com/token"
+#     auth_provider_x509_cert_url = "https://www.googleapis.com/oauth2/v1/certs"
+#     client_x509_cert_url = os.getenv("CLIENT_X509_CERT_URL")
+    
+#     credentials = Credentials.from_service_account_info({
+#         "type": type,
+#         "project_id": project_id,
+#         "private_key_id": private_key_id,
+#         "private_key": private_key,
+#         "client_email": client_email,
+#         "client_id": client_id,
+#         "client_x509_cert_url": client_x509_cert_url,
+#         "token_uri": token_uri,
+#         "auth_uri": auth_uri,
+#         "auth_provider_x509_cert_url": auth_provider_x509_cert_url,
+#         },
+#        scopes=SCOPES
+#     )
+    
+#     return credentials
+
 def gcp_authentication() -> Credentials:
     """
     Authenticates with Google Cloud Platform using a service account and environment variables.
-
-    Environment Variables Required:
-        - PRIVATE_KEY_ID
-        - PRIVATE_KEY
-        - CLIENT_EMAIL
-        - CLIENT_ID
-        - CLIENT_X509_CERT_URL
-
-    Returns:
-        Credentials: A Google OAuth2 credentials object used for accessing Google Sheets and Drive APIs.
+    Returns a Credentials object.
     """
-    
+
+    # Ensure .env is loaded (Airflow tasks may run in a different directory)
+    load_dotenv(Path("/Users/deepmangroliya/Desktop/d2p_ds_project/.env"))
+
     SCOPES = [
         "https://spreadsheets.google.com/feeds",
         'https://www.googleapis.com/auth/spreadsheets',
         "https://www.googleapis.com/auth/drive.file",
         "https://www.googleapis.com/auth/drive"
     ]
-     
-    type = "service_account"
-    project_id = "potent-symbol-456616-g9"
-    private_key_id = os.getenv("PRIVATE_KEY_ID")
-    private_key = os.getenv("PRIVATE_KEY").replace('\\n', '\n')
-    client_email = os.getenv("CLIENT_EMAIL")
-    client_id = os.getenv("CLIENT_ID")
-    auth_uri = "https://accounts.google.com/o/oauth2/auth"
-    token_uri = "https://oauth2.googleapis.com/token"
-    auth_provider_x509_cert_url = "https://www.googleapis.com/oauth2/v1/certs"
-    client_x509_cert_url = os.getenv("CLIENT_X509_CERT_URL")
-    
-    credentials = Credentials.from_service_account_info({
-        "type": type,
-        "project_id": project_id,
-        "private_key_id": private_key_id,
+
+    private_key = os.getenv("PRIVATE_KEY")
+    if not private_key:
+        raise ValueError("❌ PRIVATE_KEY not found in environment variables")
+    private_key = private_key.replace('\\n', '\n')
+
+    return Credentials.from_service_account_info({
+        "type": "service_account",
+        "project_id": "potent-symbol-456616-g9",
+        "private_key_id": os.getenv("PRIVATE_KEY_ID"),
         "private_key": private_key,
-        "client_email": client_email,
-        "client_id": client_id,
-        "client_x509_cert_url": client_x509_cert_url,
-        "token_uri": token_uri,
-        "auth_uri": auth_uri,
-        "auth_provider_x509_cert_url": auth_provider_x509_cert_url,
-        },
-       scopes=SCOPES
-    )
-    
-    return credentials
+        "client_email": os.getenv("CLIENT_EMAIL"),
+        "client_id": os.getenv("CLIENT_ID"),
+        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+        "token_uri": "https://oauth2.googleapis.com/token",
+        "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+        "client_x509_cert_url": os.getenv("CLIENT_X509_CERT_URL")
+    }, scopes=SCOPES)
     
 def gcp_feed_data(spreadsheet_id: str, 
                   worksheet_name: str, 
