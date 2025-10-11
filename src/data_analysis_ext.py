@@ -70,19 +70,38 @@ from sqlalchemy import create_engine
 from dotenv import load_dotenv
 
 # Load environment variables
-load_dotenv(Path('.env'))
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+load_dotenv(PROJECT_ROOT / ".env")
+# load_dotenv(Path('.env'))
+
+# def get_engine(database: str):
+#     """
+#     Creates and returns a SQLAlchemy engine for the given database using
+#     credentials from the .env file.
+#     """
+#     user = os.getenv("USER")
+#     password = os.getenv("PASSWORD")
+#     host = os.getenv("HOST")
+#     port = os.getenv("PORT", "3306")  # default MySQL port if not in .env
+
+#     connection_string = f"mysql+pymysql://{user}:{password}@{host}:{port}/{database}"
+#     engine = create_engine(connection_string)
+#     return engine
 
 def get_engine(database: str):
     """
     Creates and returns a SQLAlchemy engine for the given database using
     credentials from the .env file.
     """
-    user = os.getenv("USER")
+    user = os.getenv("USER") or "root"
     password = os.getenv("PASSWORD")
     host = os.getenv("HOST")
-    port = os.getenv("PORT", "3306")  # default MySQL port if not in .env
+    port = os.getenv("PORT", "3306")  # Default MySQL port
 
-    connection_string = f"mysql+pymysql://{user}:{password}@{host}:{port}/{database}"
+    if not host:
+        raise ValueError("❌ HOST is missing in .env file or not loaded properly.")
+
+    connection_string = f"mysql+pymysql://root:{password}@{host}:{port}/{database}"
     engine = create_engine(connection_string)
     return engine
 
@@ -116,12 +135,13 @@ def run_sql_query_from_file(file_path: str, database: str) -> pd.DataFrame:
         print(f"❌ Error executing query: {e}")
         return pd.DataFrame()  # Return empty DataFrame on failure
 
-def process() -> pd.DataFrame:
+def analysis_process() -> pd.DataFrame:
     """
     Example process function. Modify this to call run_sql_query_from_file
     with your actual SQL file paths and databases.
     """
     sql_file = Path(__file__).parent / "query.sql"  # adjust path
-    database = "raw"  # replace with actual database
+    print(sql_file)
+    database = "refined"  # replace with actual database
     df = run_sql_query_from_file(sql_file, database)
     return df

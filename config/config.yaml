@@ -22,7 +22,7 @@ data_analysis_ext:
     - export:
         host: s3
         bucket_name: d2p.testing.bucket
-        object_name: clv_data
+        object_name: clv_data.csv
 
 modeling:
   export:

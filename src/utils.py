@@ -201,8 +201,10 @@ def insert_data(con: MySQLConnection,
         except Error as e:
             print(e)
     return total
-        
-#Amazon Web Services (AWS)
+
+# ----------------------------------------------------------------------------------------        
+#                              Amazon Web Services (AWS)                                 #
+# ----------------------------------------------------------------------------------------
 
 def auth_aws() -> BaseClient:
     """
@@ -278,6 +280,13 @@ def write_file_s3(df: pd.DataFrame,
         print("File uploaded Successfully")
     except ClientError as e:
         print(e)
+        
+        
+
+# ----------------------------------------------------------------------------------------        
+#                              Google Cloud Provider (GCP)                                 #
+# ----------------------------------------------------------------------------------------
+
         
 # def gcp_authentication() -> Credentials:
 #     """

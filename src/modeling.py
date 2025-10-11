@@ -150,7 +150,7 @@ def modeling(original_data: pd.DataFrame) -> pd.DataFrame:
     return predictions_df
 
 
-def process() -> None:
+def modeling_process() -> None:
     """
     Loads data from S3, runs the CLV modeling pipeline, 
     prints results, and uploads them to Google Sheets.

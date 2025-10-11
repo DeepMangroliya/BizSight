@@ -3,7 +3,8 @@ import yaml
 import os
 from pathlib import Path
 from src.utils import write_file_s3, gcp_feed_data
-from src.data_analysis_ext import process
+from src.data_analysis_ext import analysis_process
+from src.modeling import modeling_process
 
 # Resolve project root dynamically
 PROJECT_ROOT = Path(__file__).resolve().parent
@@ -29,7 +30,7 @@ config_export = config[args.task]["export"]
 export_cfg = config_export[0]["export"]
 
 # Run data process function
-df = process()
+df = analysis_process()
 
 if df is None:
     raise Exception("❌ DataFrame returned is None. Check your query or DB connection.")
@@ -40,5 +41,14 @@ if df is None:
 # Export result based on config
 if export_cfg["host"] == "s3":
     write_file_s3(df, export_cfg["bucket_name"], export_cfg["object_name"])
-elif export_cfg["host"] == "gsheet":
-    gcp_feed_data(export_cfg["spread_sheet_id"], export_cfg["worksheet_name"], df)
+
+df2 = modeling_process()
+
+if df2 is None:
+    raise Exception("❌ DataFrame returned is None. Check your S3 bucket or AWS connection.")
+
+if df2 is None:
+    raise Exception("❌ DataFrame is None. Check your AWS, S3, or process function.")
+
+if export_cfg["host"] == "gsheet":
+    gcp_feed_data(export_cfg["spread_sheet_id"], export_cfg["worksheet_name"], df2)
