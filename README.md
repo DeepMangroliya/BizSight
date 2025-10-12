@@ -5,6 +5,8 @@
 [![MySQL](https://img.shields.io/badge/MySQL-8.0+-orange.svg)](https://mysql.com)
 [![AWS](https://img.shields.io/badge/AWS-S3-yellow.svg)](https://aws.amazon.com/s3/)
 [![Google Sheets](https://img.shields.io/badge/Google-Sheets-green.svg)](https://sheets.google.com)
+[![Airflow](https://img.shields.io/badge/Apache-Airflow-017CEE.svg)](https://airflow.apache.org/)
+[![GCP](https://img.shields.io/badge/Google-Cloud_Platform-4285F4.svg)](https://cloud.google.com/)
 
 ## 🎯 Executive Summary
 
@@ -134,18 +136,111 @@ python -c "from src.utils import db_connection; import os; from dotenv import lo
 ## 🔧 Usage Instructions
 
 ### Option 1: Complete Pipeline Execution (Recommended)
+
+Automated (Airflow Execution)
+
+Step 1: Initialize Airflow
 ```bash
-# Run the full automated pipeline
-chmod +x runpipeline.sh
-./runpipeline.sh
+airflow db init
+```
+Step 2: Create Admin User
+```bash
+airflow users create \\
+
+\--username admin \\
+
+\--firstname Deep \\
+
+\--lastname Mangroliya \\
+
+\--role Admin \\
+
+\--email mangroliyadeep@gmail.com
+```
+Step 3: Start Services
+```bash
+airflow webserver --port 8080 
+```
+```bash
+airflow scheduler #in new terminal
+```
+```bash
+Access the web UI → http://localhost:8080
+```
+Step 4: Trigger DAG
+```bash
+airflow dags trigger bizsight\_pipeline
+```
+Airflow will automatically execute the following steps in order:
+```bash
+Create raw database -> Load raw data -> Run ETL -> Create refined database -> Run data analysis -> Train ML model -> Upload outputs to AWS S3 + Google Sheets
+```
+## 🧠 Key Scripts Explained
+
+1. main.py
+
+The central control file that connects all modules.
+```bash
+if task == "modeling":
+
+from src.modeling import train\_model
+
+train\_model()
+
+elif task == "etl":
+
+from src.etl\_pipeline import run\_etl
+
+run\_etl()
 ```
 
-This executes the complete workflow:
-1. Creates raw database and loads initial data
-2. Runs ETL processing and data normalization  
-3. Performs ML modeling and CLV predictions
-4. Uploads results to S3 and Google Sheets
+You can trigger specific tasks:
 
+```bash
+python main.py -t "etl"
+
+python main.py -t "modeling"
+```
+
+2. src/modeling.py
+
+Trains and predicts CLV using XGBoost:
+```bash
+from xgboost import XGBRegressor
+
+model = XGBRegressor(
+
+n\_estimators=500,
+
+learning\_rate=0.1,
+
+random\_state=42
+
+)
+
+model.fit(X\_train, y\_train)
+
+preds = model.predict(X\_test)
+```
+### ☁️ Cloud Integration
+
+AWS S3: Stores processed and predicted datasets
+
+Google Sheets: Hosts auto-updated dashboards for executives
+
+GCP Looker Studio: For visual analytics and reporting
+
+Example upload snippet:
+```bash
+import boto3
+
+s3 = boto3.client('s3', aws\_access\_key\_id=ACCESS\_KEY, aws\_secret\_access\_key=SECRET\_KEY)
+
+s3.upload\_file('outputs/predictions.csv', 'bizsight-data', 'predictions/predictions.csv')
+```
+📊 Dashboard Preview
+
+<p align="center"> <img src="assets/BizSight-Dashboard.png" alt="BizSight Dashboard" width="800"/> </p> <p align="center"><em>Google Sheets + Looker Studio Dashboard showcasing CLV insights</em></p>
 ### Option 2: Manual Step Execution
 
 #### Database Operations:
