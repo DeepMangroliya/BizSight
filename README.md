@@ -240,7 +240,7 @@ s3.upload\_file('outputs/predictions.csv', 'bizsight-data', 'predictions/predict
 ```
 📊 Dashboard Preview
 
-<p align="center"> <img src="assets/BizSight-Dashboard.png" alt="BizSight Dashboard" width="800"/> </p> <p align="center"><em>Google Sheets + Looker Studio Dashboard showcasing CLV insights</em></p>
+<p align="center"> <img src="assets/d2p_dashboard.webp" alt="BizSight Dashboard" width="800"/> </p> <p align="center"><em>Google Sheets + Looker Studio Dashboard showcasing CLV insights</em></p>
 ### Option 2: Manual Step Execution
 
 #### Database Operations:
