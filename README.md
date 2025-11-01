@@ -73,7 +73,7 @@ Raw Data (CSV) → MySQL Database → ETL Processing → ML Modeling → Cloud S
 ### 1. Repository Setup
 ```bash
 # Clone the repository
-git clone <(https://github.com/DeepMangroliya/BizSight)> #this repository URL
+git clone <https://github.com/DeepMangroliya/BizSight> #this repository URL
 cd bizsight
 
 # Verify Python version
